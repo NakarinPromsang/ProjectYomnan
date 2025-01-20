@@ -1,79 +1,53 @@
-<!DOCTYPE html>
-<html data-bs-theme="light" lang="en">
+<?php
+session_start();
+$open_connect = 1;
+require('connect.php');
 
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
-    <title>Login</title>
-    <link rel="stylesheet" href="assets/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i&display=swap">
-    <link rel="stylesheet" href="assets/css/styles.min.css">
-</head>
+if (isset($_POST['email_account']) && isset($_POST['password_account'])) {
+    $email_account = htmlspecialchars(mysqli_real_escape_string($connect, $_POST['email_account']));
+    $password_account = htmlspecialchars(mysqli_real_escape_string($connect, $_POST['password_account']));
+    $query_check_account = "SELECT * FROM account WHERE email_account = '$email_account'";
+    $call_back_check_account = mysqli_query($connect, $query_check_account);
+    if (mysqli_num_rows($call_back_check_account) == 1) {
+        $result_check_account = mysqli_fetch_assoc($call_back_check_account);
+        $hash = $result_check_account['password_account'];
+        $password_account = $password_account . $result_check_account['salt_account'];
+        $count = $result_check_account['login_count_account'];
+        $ban = $result_check_account['ban_account'];
+        if ($result_check_account['lock_account'] == 1) {
+            echo '<h1>บัญชีนี้ถูกระงับชั่วคราว</h1>';
+            echo "<h2>ระงับบัญชีนี้เป็นเวลา $time_ban_account นาที เพราะผู้ใช้กรอกรหัสผ่านผิดจำนวน $count ครั้ง</h2>";
+            echo "<h2>บัญชีนี้จะถูกปลดจากการระงับเมื่อถึงเวลา $ban</h2>";
+            echo '<a href="form-login.php">กลับไปยังหน้าเข้าสู่ระบบ</a>';
+        } elseif (password_verify($password_account, $hash)) {
+            $query_reset_login_count_account = "UPDATE account SET login_count_account = 0 WHERE email_account = '$email_account'";
+            $call_back_reset = mysqli_query($connect, $query_reset_login_count_account);
+            if ($result_check_account['role_account'] == 'member') { //บทบาท member
+                $_SESSION['id_account'] = $result_check_account['id_account'];
+                $_SESSION['role_account'] = $result_check_account['role_account'];
+                die(header('Location: index.php'));
+            } elseif ($result_check_account['role_account'] == 'admin') { //บทบาท admin
+                $_SESSION['id_account'] = $result_check_account['id_account'];
+                $_SESSION['role_account'] = $result_check_account['role_account'];
+                die(header('Location: admin.php'));
+            }
+        } else {
+            $query_login_count_account = "UPDATE account SET login_count_account = login_count_account + 1 WHERE email_account = '$email_account'";
+            $call_back_login_count_account = mysqli_query($connect, $query_login_count_account);
+            if ($result_check_account['login_count_account'] + 1 >= $limit_login_account) {
 
-<body class="bg-gradient-primary">
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-9 col-lg-12 col-xl-10">
-                <div class="card shadow-lg o-hidden border-0 my-5">
-                    <div class="card-body p-0">
-                        <div class="row">
-                            <div class="col-lg-6 d-none d-lg-flex">
-                                <div class="flex-grow-1 bg-login-image"
-                                    style="background: url('assets/img/yomnan/1.jpg') center / cover no-repeat;">
-                                </div>
-                            </div>
-                            <div class="col-lg-6">
-                                <div class="p-5">
-                                    <div class="text-center">
-                                        <h4 class="text-dark mb-4">Welcome Back!</h4>
-                                    </div>
+                $query_lock_account = "UPDATE account SET lock_account = 1, ban_account = DATE_ADD(NOW(), INTERVAL $time_ban_account MINUTE) WHERE email_account = '$email_account'";
+                $call_back_lock_account = mysqli_query($connect, $query_lock_account);
+            }
+            die(header('Location: form-login.php')); //รหัสผ่านไม่ถูกต้อง
+        }
 
-                                    <!-- แสดงข้อความแจ้งเตือนข้อผิดพลาด -->
-                                    <?php
-                                    if (isset($_GET['error'])) {
-                                        $error = htmlspecialchars($_GET['error']);
-                                        if ($error == 'invalid_login') {
-                                            echo '<div class="alert alert-danger" role="alert">Invalid email or password.</div>';
-                                        } elseif ($error == 'account_locked') {
-                                            echo '<div class="alert alert-warning" role="alert">Your account is temporarily locked. Please try again later.</div>';
-                                        }
-                                    }
-                                    ?>
+    } else {
+        die(header('Location: form-login.php')); //ไม่มีอีเมลนี้ในระบบ
+    }
 
-                                    <!-- ฟอร์มเข้าสู่ระบบ -->
-                                    <form action="process-login.php" method="POST" class="user">
-                                        <!-- อีเมล -->
-                                        <div class="mb-3">
-                                            <input class="form-control form-control-user" type="email" id="email"
-                                                aria-describedby="emailHelp" placeholder="Enter Email Address..."
-                                                name="email" required>
-                                        </div>
-                                        <!-- รหัสผ่าน -->
-                                        <div class="mb-3">
-                                            <input class="form-control form-control-user" type="password" id="password"
-                                                placeholder="Password" name="password" required>
-                                        </div>
-                                        <!-- ปุ่มเข้าสู่ระบบ -->
-                                        <button class="btn btn-primary d-block btn-user w-100" type="submit">Login</button>
-                                        <hr>
-                                    </form>
-                                    <!-- ลิงก์เพิ่มเติม -->
-                                    <div class="text-center">
-                                        <a class="small" href="forgot-password.html">Forgot Password?</a>
-                                    </div>
-                                    <div class="text-center">
-                                        <a class="small" href="form-register.php">Create an Account!</a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <script src="assets/bootstrap/js/bootstrap.min.js"></script>
-    <script src="assets/js/script.min.js"></script>
-</body>
+} else {
+    die(header('Location: form-login.php')); //กรุณากรอกข้อมูล
+}
 
-</html>
+?>
